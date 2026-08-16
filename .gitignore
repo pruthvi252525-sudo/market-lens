@@ -1,0 +1,11 @@
+# Virtual environment
+venv/
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local data cache
+data/raw/
+.streamlit/secrets.toml
