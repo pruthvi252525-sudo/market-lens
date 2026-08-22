@@ -1,18 +1,24 @@
 import os
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 import pandas as pd
 
 def get_engine():
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         raise ValueError("DATABASE_URL environment variable is not set.")
-    # Supabase URIs starting with postgres:// should be postgresql:// for SQLAlchemy
+    
+    # Strip any accidental wrapping quotes or whitespace added during secret copy-paste
+    db_url = db_url.strip().strip('"').strip("'")
+    
+    # SQLAlchemy requires postgresql:// instead of postgres://
     if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        db_url = "postgresql://" + db_url[len("postgres://"):]
+        
     return create_engine(db_url)
 
 def init_db():
-    """Ensures the schema exists with a unique constraint on 'id'."""
+    """Ensures the table exists."""
     create_table_query = """
     CREATE TABLE IF NOT EXISTS market_data (
         id VARCHAR(64) PRIMARY KEY,
@@ -26,14 +32,13 @@ def init_db():
         conn.execute(text(create_table_query))
 
 def upsert_records(df: pd.DataFrame):
-    """Inserts records while skipping already existing IDs."""
+    """Inserts records while skipping existing IDs."""
     if df.empty:
         return
     
     init_db()
     engine = get_engine()
     
-    # Write to a temporary staging table then insert non-existing
     with engine.begin() as conn:
         df.to_sql("temp_stage", conn, if_exists="replace", index=False)
         upsert_query = """
